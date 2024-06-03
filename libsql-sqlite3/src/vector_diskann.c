@@ -405,6 +405,7 @@ static int diskAnnUpdateVectorNeighbour(
 struct SearchContext {
   Vector *pQuery;
   VectorNode **aCandidates;
+  double *aDistances;         /* Candidate distances to the query vector */
   unsigned int nCandidates;
   unsigned int maxCandidates;
   VectorNode *visitedList;
@@ -414,6 +415,7 @@ struct SearchContext {
 
 static void initSearchContext(SearchContext *pCtx, Vector* pQuery, unsigned int maxCandidates){
   pCtx->pQuery = pQuery;
+  pCtx->aDistances = sqlite3_malloc(maxCandidates * sizeof(double));
   pCtx->aCandidates = sqlite3_malloc(maxCandidates * sizeof(VectorNode));
   pCtx->nCandidates = 0;
   pCtx->maxCandidates = maxCandidates;
@@ -431,6 +433,7 @@ static void deinitSearchContext(SearchContext *pCtx){
     pNode = pNext;
   }
   sqlite3_free(pCtx->aCandidates);
+  sqlite3_free(pCtx->aDistances);
 }
 
 static int isVisited(SearchContext *pCtx, u64 id){
@@ -452,18 +455,19 @@ static void addCandidate(SearchContext *pCtx, VectorNode *pNode){
       return;
     }
   }
+  float toInsertDist = vectorDistanceCos(pCtx->pQuery, pNode->vec);
   // Special-case insertion to empty candidate set to avoid the distance calculation.
   if( pCtx->nCandidates==0 ){
     pCtx->aCandidates[pCtx->nCandidates++] = vectorNodeGet(pNode);
+    pCtx->aDistances[pCtx->nCandidates] = toInsertDist;
     pCtx->nUnvisited++;
     return;
   }
   int insertIdx = -1;
   // Find the index of the candidate that is further away from the query
   // vector than the one we're inserting.
-  float toInsertDist = vectorDistanceCos(pCtx->pQuery, pNode->vec);
   for( int i = 0; i < pCtx->nCandidates; i++ ){
-    float distCandidate = vectorDistanceCos(pCtx->pQuery, pCtx->aCandidates[i]->vec);
+    float distCandidate = pCtx->aDistances[i];
     if( toInsertDist < distCandidate ){
       insertIdx = i;
       break;
@@ -489,9 +493,11 @@ static void addCandidate(SearchContext *pCtx, VectorNode *pNode){
   // Shift the candidates to the right to make space for the new one.
   for( int i = pCtx->nCandidates-1; i > insertIdx; i-- ){
     pCtx->aCandidates[i] = pCtx->aCandidates[i-1];
+    pCtx->aDistances[i] = pCtx->aDistances[i-1];
   }
   // Insert the new candidate.
   pCtx->aCandidates[insertIdx] = vectorNodeGet(pNode);
+  pCtx->aDistances[insertIdx] = toInsertDist;
   pCtx->nUnvisited++;
 }
 
@@ -500,15 +506,17 @@ static void addCandidate(SearchContext *pCtx, VectorNode *pNode){
 */
 static VectorNode* findClosestCandidate(SearchContext *pCtx){
   VectorNode *pClosestCandidate = NULL;
+  int closestIdx = -1;
   for (int i = 0; i < pCtx->nCandidates; i++) {
     VectorNode *pNewCandidate = pCtx->aCandidates[i];
     if( !pNewCandidate->visited ){
       if( pClosestCandidate==NULL ){
         pClosestCandidate = pNewCandidate;
+        closestIdx = i;
         continue;
       }
-      float closestDist = vectorDistanceCos(pCtx->pQuery, pClosestCandidate->vec);
-      float newDist = vectorDistanceCos(pCtx->pQuery, pNewCandidate->vec);
+      float closestDist = pCtx->aDistances[closestIdx];
+      float newDist = pCtx->aDistances[i];
       if( newDist < closestDist ){
         pClosestCandidate = pNewCandidate;
         break;
