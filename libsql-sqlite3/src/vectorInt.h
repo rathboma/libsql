@@ -11,7 +11,7 @@ extern "C" {
 typedef struct Vector Vector;
 typedef struct DiskAnnIndex DiskAnnIndex;
 
-#define MAX_VECTOR_SZ 16000
+#define MAX_VECTOR_SZ 65536
 
 typedef u16 VectorType;
 typedef u32 VectorDims;
