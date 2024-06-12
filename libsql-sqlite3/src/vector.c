@@ -29,7 +29,6 @@
 
 #include "vectorInt.h"
 
-#define MAX_VECTOR_SZ 16000
 #define MAX_FLOAT_CHAR_SZ  1024
 
 /**************************************************************************
