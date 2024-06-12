@@ -74,7 +74,7 @@ size_t vectorF32SerializeToBlob(
   float *elems = v->data;
   unsigned char *blobPtr = blob;
   size_t len = 0;
-  assert( blobSz >= v->len * sizeof(float) );
+  assert( blobSz >= v->dims * sizeof(float) );
   for (unsigned i = 0; i < v->dims; i++) {
     blobPtr += serializeF32(blobPtr, elems[i]);
     len += sizeof(float);
@@ -154,7 +154,7 @@ float vectorF32DistanceCos(Vector *v1, Vector *v2){
   float *e1 = v1->data;
   float *e2 = v2->data;
   int i;
-  assert( v1->len == v2->len );
+  assert( v1->dims == v2->dims );
   for(i = 0; i < v1->dims; i++){
     dot += e1[i]*e2[i];
     norm1 += e1[i]*e1[i];
