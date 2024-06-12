@@ -728,6 +728,23 @@ out_free_node:
 ** DiskANN index management
 **************************************************************************/
 
+
+/*
+** Create internal tables.
+*/
+static int vectorInternalTableInit(sqlite3 *db){
+  static const char *zSql =
+    "CREATE TABLE IF NOT EXISTS libsql_vector_index ("
+    "type TEXT, "
+    "name TEXT, "
+    "vector_type TEXT, "
+    "block_size INTEGER, "
+    "dims INTEGER, "
+    "distance_ops TEXT"
+    ");";
+  return sqlite3_exec(db, zSql, 0, 0, 0);
+}
+
 static const char *diskAnnToVectorType(int nVectorType){
   switch( nVectorType ){
     case VECTOR_TYPE_FLOAT32:
@@ -771,6 +788,10 @@ int diskAnnCreateIndex(
   sqlite3_stmt *pStmt;
   int rc;
 
+  rc = vectorInternalTableInit(db);
+  if( rc!=SQLITE_OK ){
+    return rc;
+  }
   zDistanceOps = diskAnnToDistanceOps(nDistanceFunc);
   if( zDistanceOps==NULL ){
     return SQLITE_ERROR;
