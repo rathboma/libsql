@@ -43,6 +43,22 @@ struct vectorVtab_cursor {
   i64 *pRowids;
 };
 
+/*
+** Create internal tables.
+*/
+static int vectorInternalTableInit(sqlite3 *db){
+  static const char *zSql =
+    "CREATE TABLE IF NOT EXISTS libsql_vector_index ("
+    "type TEXT, "
+    "name TEXT, "
+    "vector_type TEXT, "
+    "block_size INTEGER, "
+    "dims INTEGER, "
+    "distance_ops TEXT"
+    ");";
+  return sqlite3_exec(db, zSql, 0, 0, 0);
+}
+
 static int vectorVtabConnect(
   sqlite3 *db,
   void *pAux,
@@ -52,6 +68,11 @@ static int vectorVtabConnect(
 ){
   vectorVtab *pVtab;
   int rc;
+
+  rc = vectorInternalTableInit(db);
+  if( rc!=SQLITE_OK ){
+    return rc;
+  }
 
 /* Column numbers */
 #define VECTOR_COLUMN_ID     0
@@ -277,32 +298,7 @@ static sqlite3_module vectorModule = {
   /* xIntegrity  */ 0
 };
 
-/*
-** Create internal tables.
-*/
-static int vectorInternalTableInit(sqlite3 *db){
-  static const char *zSql =
-    "CREATE TABLE IF NOT EXISTS libsql_vector_index ("
-    "type TEXT, "
-    "name TEXT, "
-    "vector_type TEXT, "
-    "block_size INTEGER, "
-    "dims INTEGER, "
-    "distance_ops TEXT"
-    ");";
-  if( sqlite3_db_readonly(db, 0) ){
-    return SQLITE_OK;
-  }
-  return sqlite3_exec(db, zSql, 0, 0, 0);
-}
-
 int vectorVtabInit(sqlite3 *db){
-  int rc;
-  rc = vectorInternalTableInit(db);
-  if( rc!=SQLITE_OK ){
-    printf("Failed to create internal tables: %s\n", sqlite3_errmsg(db));
-    return rc;
-  }
   return sqlite3_create_module(db, "vector_top_k", &vectorModule, 0);
 }
 #else
