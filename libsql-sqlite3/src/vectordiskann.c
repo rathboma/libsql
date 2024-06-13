@@ -306,9 +306,50 @@ static int diskAnnNeighbourMetadata(DiskAnnIndex *pIndex, VectorNode *pNode, siz
 }
 
 /**
+** Updates on-disk vector deleting a neighbour, pruning the neighbour list if needed.
+**/
+static int diskAnnDeleteNeighbour(
+  DiskAnnIndex *pIndex,
+  VectorNode *pVec,
+  uint64_t id
+){
+  unsigned int maxNeighbours = diskAnnMaxNeighbours(pIndex);
+  u16 nNeighbours;
+  int off;
+  nNeighbours = (u16) pVec->pBuffer[8] | (u16) pVec->pBuffer[9] << 8;
+  off = sizeof(u64) + sizeof(u16) + vectorSize(pIndex);
+  int deleteIdx = -1;
+  for( int i = 0; i < nNeighbours; i++ ){
+    VectorMetadata neighbourMetadata;
+    if( diskAnnNeighbourMetadata(pIndex, pVec, i, &neighbourMetadata) < 0 ){
+      continue;
+    }
+    if( neighbourMetadata.id==id ){
+      deleteIdx = i;
+      break;
+    }
+  }
+  if( deleteIdx==-1 ){
+    return SQLITE_OK;
+  }
+  /* Calculate how many neighbours need to move. */
+  int nToMove = nNeighbours-deleteIdx-1;
+  /* Move the neighbours to the left to delete the neighbour. */
+  off = sizeof(u64) + sizeof(u16) + vectorSize(pIndex) + deleteIdx * vectorSize(pIndex);
+  memmove(pVec->pBuffer+off, pVec->pBuffer+off+vectorSize(pIndex), nToMove * vectorSize(pIndex));
+  off = neighbourMetadataOffset(pIndex) + deleteIdx * NEIGHBOUR_METADATA_SIZE;
+  /* Move the metadata to left to delete the neighbour. */
+  memmove(pVec->pBuffer+off+NEIGHBOUR_METADATA_SIZE, pVec->pBuffer+off, nToMove * NEIGHBOUR_METADATA_SIZE);
+  nNeighbours--;
+  assert( nNeighbours <= maxNeighbours );
+  pVec->pBuffer[8] = nNeighbours;
+  pVec->pBuffer[9] = nNeighbours >> 8;
+}
+
+/**
 ** Updates on-disk vector with a new neighbour, pruning the neighbour list if needed.
 **/
-static int diskAnnUpdateVectorNeighbour(
+static int diskAnnInsertNeighbour(
   DiskAnnIndex *pIndex,
   VectorNode *pVec,
   VectorNode *pNodeToAdd,
@@ -634,12 +675,12 @@ int diskAnnSearch(
 ** DiskANN insertion
 **************************************************************************/
 
-static int diskAnnInsertShadowRow(DiskAnnIndex *pIndex, u64 *pRowid){
+static int diskAnnInsertShadowRow(DiskAnnIndex *pIndex, i64 id, u64 *pRowid){
   sqlite3_stmt *pStmt;
   char *zSql;
   u64 rowid;
   int rc;
-  zSql = sqlite3MPrintf(pIndex->db, "INSERT INTO %s_shadow VALUES (?) RETURNING rowid", pIndex->zName);
+  zSql = sqlite3MPrintf(pIndex->db, "INSERT INTO %s_shadow VALUES (?, ?) RETURNING rowid", pIndex->zName);
   if( zSql==NULL ){
     return SQLITE_NOMEM;
   }
@@ -647,7 +688,11 @@ static int diskAnnInsertShadowRow(DiskAnnIndex *pIndex, u64 *pRowid){
   if( rc!=SQLITE_OK ){
     goto out;
   }
-  rc = sqlite3_bind_zeroblob(pStmt, 1, DISKANN_BLOCK_SIZE);
+  rc = sqlite3_bind_int64(pStmt, 1, id);
+  if( rc!=SQLITE_OK ){
+    goto out;
+  }
+  rc = sqlite3_bind_zeroblob(pStmt, 2, DISKANN_BLOCK_SIZE);
   if( rc!=SQLITE_OK ){
     goto out;
   }
@@ -681,7 +726,7 @@ int diskAnnInsert(
   if (diskAnnSelectRandom(pIndex, &nEntryRowid) != SQLITE_OK) {
     first = 1;
   }
-  rc = diskAnnInsertShadowRow(pIndex, &nBlockRowid);
+  rc = diskAnnInsertShadowRow(pIndex, id, &nBlockRowid);
   if( rc!=SQLITE_OK ){
     return rc;
   }
@@ -703,10 +748,10 @@ int diskAnnInsert(
   initSearchContext(&ctx, pVec, DISKANN_DEFAULT_INSERT_L);
   diskAnnSearchInternal(pIndex, &ctx, nEntryRowid);
   for( VectorNode *pVisited = ctx.visitedList; pVisited!=NULL; pVisited = pVisited->pNext ){
-    diskAnnUpdateVectorNeighbour(pIndex, pNode, pVisited, pVisited->vec);
+    diskAnnInsertNeighbour(pIndex, pNode, pVisited, pVisited->vec);
   }
   for( VectorNode* pVisited = ctx.visitedList; pVisited!=NULL; pVisited = pVisited->pNext ){
-    diskAnnUpdateVectorNeighbour(pIndex, pVisited, pNode, pVec);
+    diskAnnInsertNeighbour(pIndex, pVisited, pNode, pVec);
     diskAnnFlushVector(pIndex, pVisited);
   }
   nWritten = diskAnnFlushVector(pIndex, pNode);
@@ -725,9 +770,65 @@ out_free_node:
 }
 
 /**************************************************************************
-** DiskANN index management
+** DiskANN deletion
 **************************************************************************/
 
+static int diskAnnDeleteShadowRow(DiskAnnIndex *pIndex, i64 id){
+  sqlite3_stmt *pStmt;
+  char *zSql;
+  int rc;
+  zSql = sqlite3MPrintf(pIndex->db, "DELETE FROM %s_shadow WHERE index_key = ?", pIndex->zName);
+  if( zSql==NULL ){
+    return SQLITE_NOMEM;
+  }
+  rc = sqlite3_prepare_v2(pIndex->db, zSql, -1, &pStmt, 0);
+  if( rc!=SQLITE_OK ){
+    goto out;
+  }
+  rc = sqlite3_bind_int64(pStmt, 1, id);
+  if( rc!=SQLITE_OK ){
+    goto out;
+  }
+  rc = sqlite3_step(pStmt);
+  if( rc!=SQLITE_DONE ){
+    rc = SQLITE_ERROR;
+    goto out;
+  }
+  sqlite3_finalize(pStmt);
+  rc = SQLITE_OK;
+out:
+  sqlite3DbFree(pIndex->db, zSql);
+  return rc;
+}
+
+int diskAnnDelete(
+  DiskAnnIndex *pIndex,
+  i64 id
+){
+  VectorNode *pNode;
+  pNode = diskAnnReadVector(pIndex, id);
+  if( pNode==NULL ){
+    return SQLITE_ERROR;
+  }
+  for( int i = 0; i < diskAnnNeighbourCount(pNode); i++ ){
+    VectorMetadata neighbourMetadata;
+    if( diskAnnNeighbourMetadata(pIndex, pNode, i, &neighbourMetadata) < 0 ){
+      continue;
+    }
+    VectorNode *pNeighbour = diskAnnReadVector(pIndex, neighbourMetadata.offset);
+    if( pNeighbour==NULL ){
+      continue;
+    }
+    diskAnnDeleteNeighbour(pIndex, pNeighbour, id);
+    diskAnnFlushVector(pIndex, pNeighbour);
+    vectorNodePut(pNeighbour);
+  }
+  return diskAnnDeleteShadowRow(pIndex, id);
+}
+
+/**************************************************************************
+** DiskANN index management
+**************************************************************************/
 
 /*
 ** Create internal tables.
