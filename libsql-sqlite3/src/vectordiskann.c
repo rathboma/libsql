@@ -306,47 +306,6 @@ static int diskAnnNeighbourMetadata(DiskAnnIndex *pIndex, VectorNode *pNode, siz
 }
 
 /**
-** Updates on-disk vector deleting a neighbour, pruning the neighbour list if needed.
-**/
-static int diskAnnDeleteNeighbour(
-  DiskAnnIndex *pIndex,
-  VectorNode *pVec,
-  uint64_t id
-){
-  unsigned int maxNeighbours = diskAnnMaxNeighbours(pIndex);
-  u16 nNeighbours;
-  int off;
-  nNeighbours = (u16) pVec->pBuffer[8] | (u16) pVec->pBuffer[9] << 8;
-  off = sizeof(u64) + sizeof(u16) + vectorSize(pIndex);
-  int deleteIdx = -1;
-  for( int i = 0; i < nNeighbours; i++ ){
-    VectorMetadata neighbourMetadata;
-    if( diskAnnNeighbourMetadata(pIndex, pVec, i, &neighbourMetadata) < 0 ){
-      continue;
-    }
-    if( neighbourMetadata.id==id ){
-      deleteIdx = i;
-      break;
-    }
-  }
-  if( deleteIdx==-1 ){
-    return SQLITE_OK;
-  }
-  /* Calculate how many neighbours need to move. */
-  int nToMove = nNeighbours-deleteIdx-1;
-  /* Move the neighbours to the left to delete the neighbour. */
-  off = sizeof(u64) + sizeof(u16) + vectorSize(pIndex) + deleteIdx * vectorSize(pIndex);
-  memmove(pVec->pBuffer+off, pVec->pBuffer+off+vectorSize(pIndex), nToMove * vectorSize(pIndex));
-  off = neighbourMetadataOffset(pIndex) + deleteIdx * NEIGHBOUR_METADATA_SIZE;
-  /* Move the metadata to left to delete the neighbour. */
-  memmove(pVec->pBuffer+off+NEIGHBOUR_METADATA_SIZE, pVec->pBuffer+off, nToMove * NEIGHBOUR_METADATA_SIZE);
-  nNeighbours--;
-  assert( nNeighbours <= maxNeighbours );
-  pVec->pBuffer[8] = nNeighbours;
-  pVec->pBuffer[9] = nNeighbours >> 8;
-}
-
-/**
 ** Updates on-disk vector with a new neighbour, pruning the neighbour list if needed.
 **/
 static int diskAnnInsertNeighbour(
@@ -803,6 +762,47 @@ out:
 out_free:
   sqlite3DbFree(pIndex->db, zSql);
   return rc;
+}
+
+/**
+** Updates on-disk vector deleting a neighbour, pruning the neighbour list if needed.
+**/
+static int diskAnnDeleteNeighbour(
+  DiskAnnIndex *pIndex,
+  VectorNode *pVec,
+  uint64_t id
+){
+  unsigned int maxNeighbours = diskAnnMaxNeighbours(pIndex);
+  u16 nNeighbours;
+  int off;
+  nNeighbours = (u16) pVec->pBuffer[8] | (u16) pVec->pBuffer[9] << 8;
+  off = sizeof(u64) + sizeof(u16) + vectorSize(pIndex);
+  int deleteIdx = -1;
+  for( int i = 0; i < nNeighbours; i++ ){
+    VectorMetadata neighbourMetadata;
+    if( diskAnnNeighbourMetadata(pIndex, pVec, i, &neighbourMetadata) < 0 ){
+      continue;
+    }
+    if( neighbourMetadata.id==id ){
+      deleteIdx = i;
+      break;
+    }
+  }
+  if( deleteIdx==-1 ){
+    return SQLITE_OK;
+  }
+  /* Calculate how many neighbours need to move. */
+  int nToMove = nNeighbours-deleteIdx-1;
+  /* Move the neighbours to the left to delete the neighbour. */
+  off = sizeof(u64) + sizeof(u16) + vectorSize(pIndex) + deleteIdx * vectorSize(pIndex);
+  memmove(pVec->pBuffer+off, pVec->pBuffer+off+vectorSize(pIndex), nToMove * vectorSize(pIndex));
+  off = neighbourMetadataOffset(pIndex) + deleteIdx * NEIGHBOUR_METADATA_SIZE;
+  /* Move the metadata to left to delete the neighbour. */
+  memmove(pVec->pBuffer+off+NEIGHBOUR_METADATA_SIZE, pVec->pBuffer+off, nToMove * NEIGHBOUR_METADATA_SIZE);
+  nNeighbours--;
+  assert( nNeighbours <= maxNeighbours );
+  pVec->pBuffer[8] = nNeighbours;
+  pVec->pBuffer[9] = nNeighbours >> 8;
 }
 
 int diskAnnDelete(
