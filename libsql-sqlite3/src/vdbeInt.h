@@ -688,6 +688,7 @@ int vectorIndexCursorInit(sqlite3 *, VdbeCursor *, const char *);
 void vectorIndexCursorClose(sqlite3 *db, VdbeCursor *pCsr);
 int vectorIndexCreate(Parse*, Index*, IdList*);
 int vectorIndexInsert(VectorIdxCursor *, const BtreePayload *);
+int vectorIndexDelete(VectorIdxCursor *, const UnpackedRecord *);
 
 void sqlite3VdbeValueListFree(void*);
 
