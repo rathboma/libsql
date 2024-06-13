@@ -786,7 +786,7 @@ static int diskAnnDeleteShadowRow(DiskAnnIndex *pIndex, i64 id){
   }
   rc = sqlite3_prepare_v2(pIndex->db, zSql, -1, &pStmt, 0);
   if( rc!=SQLITE_OK ){
-    goto out;
+    goto out_free;
   }
   rc = sqlite3_bind_int64(pStmt, 1, id);
   if( rc!=SQLITE_OK ){
@@ -800,6 +800,7 @@ static int diskAnnDeleteShadowRow(DiskAnnIndex *pIndex, i64 id){
   rc = SQLITE_OK;
 out:
   sqlite3_finalize(pStmt);
+out_free:
   sqlite3DbFree(pIndex->db, zSql);
   return rc;
 }
