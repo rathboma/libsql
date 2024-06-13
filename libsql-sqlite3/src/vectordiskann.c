@@ -823,6 +823,7 @@ int diskAnnDelete(
     diskAnnFlushVector(pIndex, pNeighbour);
     vectorNodePut(pNeighbour);
   }
+  vectorNodePut(pNode);
   return diskAnnDeleteShadowRow(pIndex, id);
 }
 
