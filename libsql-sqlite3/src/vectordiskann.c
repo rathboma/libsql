@@ -591,20 +591,22 @@ static int diskAnnSelectRandom(DiskAnnIndex *pIndex, u64 *pRowid){
 
   zSql = sqlite3MPrintf(pIndex->db, "SELECT rowid FROM %s_shadow ORDER BY RANDOM() LIMIT 1", pIndex->zName);
   if( zSql==NULL ){
-    return -1;
+    return SQLITE_ERROR;
   }
   rc = sqlite3_prepare_v2(pIndex->db, zSql, -1, &pStmt, 0);
   if( rc!=SQLITE_OK ){
-    goto out;
+    goto out_free;
   }
   if( sqlite3_step(pStmt)!=SQLITE_ROW ){
     rc = SQLITE_ERROR;
     goto out;
   }
   *pRowid = sqlite3_column_int64(pStmt, 0);
+  rc = SQLITE_OK;
 out:
-  sqlite3DbFree(pIndex->db, zSql);
   sqlite3_finalize(pStmt);
+out_free:
+  sqlite3DbFree(pIndex->db, zSql);
   return rc;
 }
 
