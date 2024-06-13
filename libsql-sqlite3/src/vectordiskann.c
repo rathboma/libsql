@@ -770,7 +770,7 @@ out_free:
 static int diskAnnDeleteNeighbour(
   DiskAnnIndex *pIndex,
   VectorNode *pVec,
-  uint64_t id
+  i64 id
 ){
   unsigned int maxNeighbours = diskAnnMaxNeighbours(pIndex);
   u16 nNeighbours;
