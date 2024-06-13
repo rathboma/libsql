@@ -688,7 +688,7 @@ static int diskAnnInsertShadowRow(DiskAnnIndex *pIndex, i64 id, u64 *pRowid){
   }
   rc = sqlite3_prepare_v2(pIndex->db, zSql, -1, &pStmt, 0);
   if( rc!=SQLITE_OK ){
-    goto out;
+    goto out_free;
   }
   rc = sqlite3_bind_int64(pStmt, 1, id);
   if( rc!=SQLITE_OK ){
@@ -704,9 +704,10 @@ static int diskAnnInsertShadowRow(DiskAnnIndex *pIndex, i64 id, u64 *pRowid){
     goto out;
   }
   *pRowid = sqlite3_column_int64(pStmt, 0);
-  sqlite3_finalize(pStmt);
   rc = SQLITE_OK;
 out:
+  sqlite3_finalize(pStmt);
+out_free:
   sqlite3DbFree(pIndex->db, zSql);
   return rc;
 }
@@ -796,9 +797,9 @@ static int diskAnnDeleteShadowRow(DiskAnnIndex *pIndex, i64 id){
     rc = SQLITE_ERROR;
     goto out;
   }
-  sqlite3_finalize(pStmt);
   rc = SQLITE_OK;
 out:
+  sqlite3_finalize(pStmt);
   sqlite3DbFree(pIndex->db, zSql);
   return rc;
 }
