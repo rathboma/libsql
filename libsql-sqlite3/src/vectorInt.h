@@ -53,6 +53,7 @@ int diskAnnCreateIndex(sqlite3 *, const char *, unsigned int, unsigned int);
 int diskAnnOpenIndex(sqlite3 *, const char *, DiskAnnIndex **);
 void diskAnnCloseIndex(DiskAnnIndex *pIndex);
 int diskAnnInsert(DiskAnnIndex *, Vector *v, i64);
+int diskAnnDelete(DiskAnnIndex *, i64);
 int diskAnnSearch(DiskAnnIndex *, Vector*, unsigned int, i64*);
 
 #ifdef __cplusplus
