@@ -369,7 +369,7 @@ int vectorIndexCreate(Parse *pParse, Index *pIdx, IdList *pUsing){
     sqlite3ErrorMsg(pParse, "Unknown indexing method: %s", pUsing->a[i].zName);
     return -1;
   }
-  zSql = sqlite3MPrintf(db, "CREATE TABLE IF NOT EXISTS %s_shadow (data BLOB)", pIdx->zName);
+  zSql = sqlite3MPrintf(db, "CREATE TABLE IF NOT EXISTS %s_shadow (index_key INT, data BLOB)", pIdx->zName);
   rc = sqlite3_exec(db, zSql, 0, 0, 0);
   if( rc!=SQLITE_OK ){
     return rc;
@@ -407,6 +407,15 @@ int vectorIndexInsert(
   vectorInitStatic(&v, VECTOR_TYPE_FLOAT32, sqlite3_value_blob(vec), sqlite3_value_bytes(vec));
   diskAnnInsert(pCur->index, &v, sqlite3_value_int64(rowid));
   return 0;
+}
+
+int vectorIndexDelete(
+  VectorIdxCursor *pCur,
+  const UnpackedRecord *r
+){
+  struct sqlite3_value *rowid;
+  rowid = r->aMem + 1;
+  return diskAnnDelete(pCur->index, sqlite3_value_int64(rowid));
 }
 
 int vectorIndexCursorInit(
