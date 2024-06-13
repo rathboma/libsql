@@ -948,13 +948,11 @@ int diskAnnOpenIndex(
     "WHERE type = ? AND name = ?";
   rc = sqlite3_prepare_v2(db, zInsertSql, -1, &pStmt, 0);
   if( rc!=SQLITE_OK ){
-    printf("Failed to prepare statement\n");
     return rc;
   }
   sqlite3_bind_text(pStmt, 1, "diskann", -1, SQLITE_STATIC);
   sqlite3_bind_text(pStmt, 2, zIdxName, -1, SQLITE_STATIC);
   if( sqlite3_step(pStmt)!=SQLITE_ROW ){
-    printf("Failed to step\n");
     rc = SQLITE_ERROR;
     goto out_finalize_stmt;
   }
