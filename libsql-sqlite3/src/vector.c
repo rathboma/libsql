@@ -339,7 +339,7 @@ struct VectorIdxCursor {
 **/
 static int parseVectorDims(const char *zType){
   int dims = 0;
-  if( sqlite3_strnicmp(zType, "FLOAT32(", 8)==0 ){
+  if( sqlite3_strnicmp(zType, "FLOAT32(", 8)==0 || sqlite3_strnicmp(zType, "FLOAT64(", 8)==0){
     const char *z = zType + 8;
     while( *z && *z!=')' ){
       if( !sqlite3Isdigit(*z) ){
