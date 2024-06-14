@@ -469,6 +469,7 @@ set flist {
    vector.c
    vectordiskann.c
    vectorfloat32.c
+   vectorfloat64.c
    vectorvtab.c
    rtree.c
    icu.c
