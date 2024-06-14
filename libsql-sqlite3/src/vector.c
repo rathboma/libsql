@@ -39,6 +39,8 @@ size_t vectorDataSize(VectorType type, VectorDims dims){
   switch( type ){
     case VECTOR_TYPE_FLOAT32:
       return dims * sizeof(float);
+    case VECTOR_TYPE_FLOAT64:
+      return dims * sizeof(double);
     default:
       assert(0);
   }
@@ -108,6 +110,9 @@ static void vectorInitStatic(Vector *p, u32 type, const unsigned char *blob, siz
     case VECTOR_TYPE_FLOAT32:
       vectorF32InitFromBlob(p, blob, blobSz);
       break;
+    case VECTOR_TYPE_FLOAT64:
+      vectorF64InitFromBlob(p, blob, blobSz);
+      break;
     default:
       assert(0);
   }
@@ -120,6 +125,9 @@ float vectorDistanceCos(Vector *v1, Vector *v2){
   switch (v1->type) {
     case VECTOR_TYPE_FLOAT32:
       return vectorF32DistanceCos(v1, v2);
+      break;
+    case VECTOR_TYPE_FLOAT64:
+      return vectorF64DistanceCos(v1, v2);
       break;
     default:
       assert(0);
@@ -213,11 +221,9 @@ static int vectorParseBlob(
   char **pzErrMsg
 ){
   switch (v->type) {
-    case VECTOR_TYPE_FLOAT32:
-      return vectorF3ParseBlob(arg, v, pzErrMsg);
-      break;
-    default:
-      assert(0);
+    case VECTOR_TYPE_FLOAT32: return vectorF32ParseBlob(arg, v, pzErrMsg);
+    case VECTOR_TYPE_FLOAT64: return vectorF64ParseBlob(arg, v, pzErrMsg);
+    default: assert(0);
   }
   return -1;
 }
@@ -245,19 +251,13 @@ static inline int isInteger(float num){
   return num == (u64)num;
 }
 
-static inline unsigned formatF32(float num, char *str){
-  char tmp[32];
-  if (isInteger(num)) {
-    return snprintf(tmp, 32, "%lld", (u64)num);
-  } else {
-    return snprintf(tmp, 32, "%.6e", num);
-  }
-}
-
 void vectorDump(Vector *pVec){
   switch (pVec->type) {
     case VECTOR_TYPE_FLOAT32:
       vectorF32Dump(pVec);
+      break;
+    case VECTOR_TYPE_FLOAT64:
+      vectorF64Dump(pVec);
       break;
     default:
       assert(0);
@@ -272,6 +272,9 @@ static void vectorDeserialize(
     case VECTOR_TYPE_FLOAT32:
       vectorF32Deserialize(context, v);
       break;
+    case VECTOR_TYPE_FLOAT64:
+      vectorF64Deserialize(context, v);
+      break;
     default:
       assert(0);
   }
@@ -285,6 +288,9 @@ static void vectorSerialize(
     case VECTOR_TYPE_FLOAT32:
       vectorF32Serialize(context, v);
       break;
+    case VECTOR_TYPE_FLOAT64:
+      vectorF64Serialize(context, v);
+      break;
     default:
       assert(0);
   }
@@ -294,7 +300,8 @@ size_t vectorSerializeToBlob(Vector *p, unsigned char *blob, size_t blobSize){
   switch (p->type) {
     case VECTOR_TYPE_FLOAT32:
       return vectorF32SerializeToBlob(p, blob, blobSize);
-      break;
+    case VECTOR_TYPE_FLOAT64:
+      return vectorF64SerializeToBlob(p, blob, blobSize);
     default:
       assert(0);
   }
@@ -305,7 +312,8 @@ size_t vectorDeserializeFromBlob(Vector *p, const unsigned char *blob, size_t bl
   switch (p->type) {
     case VECTOR_TYPE_FLOAT32:
       return vectorF32DeserializeFromBlob(p, blob, blobSize);
-      break;
+    case VECTOR_TYPE_FLOAT64:
+      
     default:
       assert(0);
   }
