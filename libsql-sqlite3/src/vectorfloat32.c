@@ -48,6 +48,15 @@ void vectorF32Dump(Vector *pVec){
 ** Utility routines for vector serialization and deserialization
 **************************************************************************/
 
+static inline unsigned formatF32(float num, char *str){
+  char tmp[32];
+  if (isInteger(num)) {
+    return snprintf(tmp, 32, "%lld", (u64)num);
+  } else {
+    return snprintf(tmp, 32, "%.6e", num);
+  }
+}
+
 static inline unsigned serializeF32(unsigned char *mem, float num){
   u32 *p = (u32 *)&num;
   mem[0] = *p & 0xFF;
@@ -168,7 +177,7 @@ void vectorF32InitFromBlob(Vector *p, const unsigned char *blob, size_t blobSz){
   p->data = (void*)blob;
 }
 
-int vectorF3ParseBlob(
+int vectorF32ParseBlob(
   sqlite3_value *arg,
   Vector *v,
   char **pzErr
