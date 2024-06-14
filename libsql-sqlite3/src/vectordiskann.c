@@ -855,6 +855,8 @@ static const char *diskAnnToVectorType(int nVectorType){
   switch( nVectorType ){
     case VECTOR_TYPE_FLOAT32:
       return "float32";
+    case VECTOR_TYPE_FLOAT64:
+      return "float64";
     default:
       return NULL;
   }
@@ -863,6 +865,8 @@ static const char *diskAnnToVectorType(int nVectorType){
 static int diskAnnFromVectorType(const char *zVectorType){
   if( strcmp(zVectorType, "float32")==0 ){
     return VECTOR_TYPE_FLOAT32;
+  } else if( strcmp(zVectorType, "float64")==0 ){
+    return VECTOR_TYPE_FLOAT64;
   }
   return -1;
 }
