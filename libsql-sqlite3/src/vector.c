@@ -408,6 +408,9 @@ int vectorIndexInsert(
   r.nField = pX->nMem;
   assert( r.nField == 2 );
   vec = r.aMem + 0;
+  if( sqlite3_value_type(vec)!=SQLITE_NULL ){
+    return SQLITE_OK;
+  }
   assert( sqlite3_value_type(vec) == SQLITE_BLOB );
   rowid = r.aMem + 1;
   assert( sqlite3_value_type(rowid) == SQLITE_INTEGER );
