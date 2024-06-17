@@ -404,6 +404,7 @@ int vectorIndexInsert(
   struct sqlite3_value *rowid;
   struct sqlite3_value *vec;
   UnpackedRecord r;
+  printf("ENTER %s\n", __func__);
   r.aMem = pX->aMem;
   r.nField = pX->nMem;
   assert( r.nField == 2 );
@@ -473,15 +474,19 @@ static void vectorFunc(
   char *zErrMsg = 0;
   Vector *pVec;
   int rc;
+  printf("ENTER %s\n", __func__);
   if( argc < 1 ){
+    printf("EXIT %s: wrong argc\n", __func__);
     return;
   }
   pVec = vectorContextAlloc(context, VECTOR_TYPE_FLOAT32);
   if( pVec==NULL ){
+    printf("EXIT %s: alloc failed\n", __func__);
     return;
   }
   rc = vectorParse(argv[0], pVec, &zErrMsg);
   if( rc<0 ){
+    printf("EXIT %s: parse failed\n", __func__);
     sqlite3_result_error(context, zErrMsg, -1);
     sqlite3_free(zErrMsg);
     goto out_free_vec;

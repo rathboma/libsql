@@ -685,6 +685,7 @@ int diskAnnInsert(
   u8 *pBuffer;
   int rc;
 
+  printf("ENTER %s\n", __func__);
   if (diskAnnSelectRandom(pIndex, &nEntryRowid) != SQLITE_OK) {
     first = 1;
   }
